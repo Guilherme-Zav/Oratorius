@@ -1,0 +1,8 @@
+# Normaliza para LF no repositorio. Sem isto, editar no Windows e publicar na
+# Cloudflare (Linux) gera diffs de arquivo inteiro por diferenca de fim de linha.
+* text=auto eol=lf
+
+# Binarios: nunca normalizar.
+*.png binary
+*.wav binary
+*.ico binary

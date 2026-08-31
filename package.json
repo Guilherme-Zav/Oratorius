@@ -1,0 +1,18 @@
+﻿{
+  "name": "oratorius",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Treino pessoal de oratoria e articulacao - PWA offline-first, zero dependencias de runtime",
+  "scripts": {
+    "test": "node --test",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc && node tools/build.mjs",
+    "icons": "node tools/gen-icons.mjs",
+    "dev": "node tools/build.mjs && node tools/serve.mjs",
+    "serve": "node tools/serve.mjs"
+  },
+  "devDependencies": {
+    "typescript": "~5.9"
+  }
+}

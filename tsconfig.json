@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // O projeto nao usa bundler (ver README, secao "Por que sem bundler").
+    // Escrevemos imports com extensao .ts (o que o Node 24 executa direto, sem
+    // compilar, para rodar os testes) e o tsc reescreve para .js na emissao,
+    // gerando ES modules que o Safari carrega nativamente.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    "outDir": "dist/app",
+    "rootDir": "src",
+    "noEmit": false,
+    "sourceMap": true,
+    "removeComments": false,
+
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"],
+
+  // Codigo de teste roda direto no Node 24 (type stripping), nunca no navegador.
+  // Fica fora do emit e fora do typecheck do app, que nao tem tipos de Node.
+  "exclude": ["src/**/*.test.ts", "src/**/testSignals.ts", "src/testing/**"]
+}

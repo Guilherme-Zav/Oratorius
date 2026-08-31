@@ -1,0 +1,21 @@
+# Dependencias (uma so: typescript)
+node_modules/
+
+# Saida de build. Reconstruida por `npm run build` — na Cloudflare Pages tambem.
+dist/
+
+# Gravacoes exportadas ou backups que por acaso caiam na pasta do projeto.
+# Audio e dados de treino sao pessoais e nao pertencem ao repositorio.
+*.wav
+*.webm
+*.m4a
+oratorius-backup-*.json
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.log
+npm-debug.log*
