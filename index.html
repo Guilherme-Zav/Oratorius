@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover + safe-area no CSS: o app ocupa a tela toda do iPhone 13,
+     inclusive sob o notch e a barra inferior. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<meta name="description" content="Treino pessoal de oratoria e articulacao. Roda inteiro no aparelho.">
+
+<!-- iOS: modo standalone quando adicionado a tela de inicio -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Oratorius">
+
+<title>Oratorius</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="toast" class="toast" hidden></div>
+  <main id="app">
+    <div class="boot">Carregando…</div>
+  </main>
+  <nav id="nav" class="nav"></nav>
+  <script type="module" src="./app/main.js"></script>
+</body>
+</html>
