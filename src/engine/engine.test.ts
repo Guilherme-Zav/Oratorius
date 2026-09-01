@@ -123,7 +123,7 @@ describe('scoring', () => {
     const entonacao = r.criteria.find((c) => c.id === 'entonacao');
     expect(Boolean(entonacao)).toBeTruthy();
     expect(entonacao!.verdict).toBe('atencao');
-    expect(r.headline).toContain('monotona');
+    expect(r.headline).toContain('mesmo tom');
   });
 
   it('criterio sem dado nao entra na conta (nao vira zero)', () => {
@@ -307,8 +307,9 @@ describe('sessao diaria', () => {
   it('a linha de base nunca muda entre os dias', () => {
     const a = buildSession(initialProgress(), [], new Date('2026-09-01T08:00:00'));
     const b = buildSession(initialProgress(), [], new Date('2026-11-20T08:00:00'));
-    const baseA = a.blocks.find((x) => x.title === 'Linha de base')!.exerciseIds;
-    const baseB = b.blocks.find((x) => x.title === 'Linha de base')!.exerciseIds;
+    // Busca pelo id, nunca pelo titulo: titulo e texto de interface e muda.
+    const baseA = a.blocks.find((x) => x.id === 'medida')!.exerciseIds;
+    const baseB = b.blocks.find((x) => x.id === 'medida')!.exerciseIds;
     expect(baseA.join(',')).toBe(baseB.join(','));
   });
 
@@ -318,9 +319,9 @@ describe('sessao diaria', () => {
       { exerciseId: 'art-l4-gra', dueAt: ontem, stage: 0, lapses: 1 },
     ];
     const plan = buildSession(initialProgress(), reviews);
-    const focus = plan.blocks[1];
+    const focus = plan.blocks.find((b) => b.id === 'foco')!;
     expect(focus.exerciseIds).toContain('art-l4-gra');
-    expect(focus.subtitle).toContain('revisao');
+    expect(focus.subtitle).toContain('revisão');
   });
 
   it('nivel mais alto traz exercicios mais avancados', () => {

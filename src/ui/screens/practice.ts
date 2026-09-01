@@ -1,9 +1,9 @@
 /**
- * Tela de exercicio + tela de feedback. Sao o mesmo fluxo e por isso o mesmo arquivo.
+ * Tela de exercício + tela de resultado. São o mesmo fluxo, por isso o mesmo arquivo.
  *
- * Durante a gravacao a tela mostra biofeedback ao vivo (nivel + tom). Isso nao e
- * enfeite: o retorno visual imediato e parte do mecanismo terapeutico — voce
- * corrige no meio da producao, nao depois de ler um relatorio.
+ * Durante a gravação a tela mostra o nível e o tom ao vivo. Isso não é enfeite:
+ * o retorno visual imediato é parte do efeito terapêutico — você corrige no meio
+ * da fala, e não depois de ler um relatório.
  */
 
 import { h, fmtDuration, fmtNumber } from '../dom.ts';
@@ -16,6 +16,7 @@ import { analyzeAsync, disposeAnalysisWorker } from '../../workers/client.ts';
 import type { AnalysisCurves } from '../../dsp/types.ts';
 import { encodeWav } from '../../audio/wav.ts';
 import { resample, ANALYSIS_RATE } from '../../dsp/resample.ts';
+import { normalizePcm } from '../../dsp/gain.ts';
 import { speak, stopSpeaking } from '../../audio/speech.ts';
 import { micSupport } from '../../audio/capture.ts';
 import { scoreAttempt, scoreLabel } from '../../scoring/score.ts';
@@ -32,12 +33,12 @@ let lastBlobUrl: string | null = null;
 
 export function startPractice(ctx: AppContext, plan: SessionPlan): void {
   if (plan.exerciseIds.length === 0) {
-    ctx.toast('Nenhum exercicio neste plano.', 'error');
+    ctx.toast('Não há exercício nenhum neste plano.', 'error');
     return;
   }
   const support = micSupport();
   if (!support.ok) {
-    ctx.toast(support.reason ?? 'Microfone indisponivel.', 'error');
+    ctx.toast(support.reason ?? 'O microfone não está disponível.', 'error');
     return;
   }
 
@@ -111,9 +112,9 @@ function renderPractice(ctx: AppContext): HTMLElement {
   const modelText = exercise.modelText ?? (exercise.selfReport ? null : exercise.prompt);
   if (modelText) {
     const row = h('div', { class: 'model-row' });
-    const normal = h('button', { class: 'btn ghost', text: '▶ Ouvir modelo' });
+    const normal = h('button', { class: 'btn ghost', text: '▶ Ouvir como é' });
     normal.addEventListener('click', () => void speak(modelText, { rate: 0.9 }));
-    const slow = h('button', { class: 'btn ghost', text: '▶ Camera lenta' });
+    const slow = h('button', { class: 'btn ghost', text: '▶ Bem devagar' });
     slow.addEventListener('click', () => void speak(modelText, { rate: 0.45 }));
     row.appendChild(normal);
     row.appendChild(slow);
@@ -138,7 +139,7 @@ function renderPractice(ctx: AppContext): HTMLElement {
   );
   root.appendChild(recordBtn);
 
-  const skip = h('button', { class: 'btn ghost wide', text: 'Pular este' });
+  const skip = h('button', { class: 'btn ghost wide', text: 'Pular' });
   skip.addEventListener('click', () => advance(ctx));
   root.appendChild(skip);
 
@@ -153,13 +154,13 @@ function renderPractice(ctx: AppContext): HTMLElement {
 
 function trackLabel(ex: Exercise): string {
   const map: Record<string, string> = {
-    motricidade: 'Motricidade',
+    motricidade: 'Aquecimento',
     ddk: 'Agilidade',
-    articulacao: 'Articulacao do R',
-    respiracao: 'Respiracao',
-    oratoria: 'Oratoria',
+    articulacao: 'O som do R',
+    respiracao: 'Fôlego',
+    oratoria: 'Falar bem',
   };
-  return `${map[ex.track] ?? ex.track} · nivel ${ex.level}`;
+  return `${map[ex.track] ?? ex.track} · degrau ${ex.level}`;
 }
 
 function wireRecording(
@@ -214,11 +215,10 @@ function wireRecording(
 
     ctx.recorder.onLevel((level) => {
       if (meterFill) {
-        // dBFS mapeado para 0-100%: escala logaritmica corresponde melhor a
-        // percepcao de volume do que o RMS linear.
-        const db = level.rms > 1e-5 ? 20 * Math.log10(level.rms) : -60;
-        const pct = Math.max(0, Math.min(100, ((db + 55) / 50) * 100));
-        meterFill.style.width = `${pct}%`;
+        // `display` ja vem escalado pelo pico recente da propria gravacao. Um
+        // mapeamento fixo de dBFS deixava a barra praticamente imovel, porque o
+        // ganho automatico do sistema esta desligado e o sinal cru e fraco.
+        meterFill.style.width = `${Math.round(level.display * 100)}%`;
         meterFill.classList.toggle('hot', level.peak > 0.94);
       }
       if (pitchDot) {
@@ -268,7 +268,11 @@ async function handleRecording(
   // um terco do espaco do original a 48 kHz.
   if (metrics.timing.totalSec > 0.3) {
     try {
-      const down = resample(pcm, sampleRate, ANALYSIS_RATE);
+      // Normaliza antes de guardar: com o ganho do sistema desligado, o sinal
+      // cru fica baixo demais para ouvir no celular. O ganho e constante ao
+      // longo da gravacao, entao a comparacao "hoje x mes passado" continua
+      // valendo — o que mudaria seria um ganho variavel, tipo o AGC.
+      const down = normalizePcm(resample(pcm, sampleRate, ANALYSIS_RATE)).pcm;
       audioRef = makeAudioRef(attemptId);
       await saveAudio(audioRef, encodeWav(down, ANALYSIS_RATE));
     } catch (err) {
@@ -314,7 +318,10 @@ async function registerSelfReport(ctx: AppContext, exercise: Exercise): Promise<
     metrics: {
       schemaVersion: 1, sampleRate: ANALYSIS_RATE,
       f0: { meanHz: 0, medianHz: 0, sdSemitones: 0, rangeSemitones: 0, minHz: 0, maxHz: 0, voicedRatio: 0 },
-      intensity: { meanDb: 0, sdDb: 0, peakDb: 0, noiseFloorDb: 0, snrDb: 0, clippingRatio: 0 },
+      intensity: {
+        meanDb: 0, sdDb: 0, peakDb: 0, noiseFloorDb: 0, snrDb: 0, clippingRatio: 0,
+        inputPeakDb: 0, appliedGain: 1,
+      },
       timing: {
         totalSec: exercise.durationSec ?? 30, speechSec: 0, pauseCount: 0, pauseTotalSec: 0,
         longestPauseSec: 0, syllableCount: 0, speechRate: 0, articulationRate: 0,
@@ -325,7 +332,7 @@ async function registerSelfReport(ctx: AppContext, exercise: Exercise): Promise<
     },
     score: 100,
     flags: [],
-    feedback: ['Exercicio guiado concluido.'],
+    feedback: ['Exercício feito.'],
   };
   await saveAttempt(attempt);
   p.attempts.push(attempt);
@@ -375,7 +382,7 @@ function renderFeedback(ctx: AppContext): HTMLElement {
         h('span', { class: 'legend-item wave', text: 'volume' }),
         h('span', { class: 'legend-item pitch', text: 'tom' }),
         h('span', { class: 'legend-item pause', text: 'pausa' }),
-        h('span', { class: 'legend-item filled', text: 'alongamento' }),
+        h('span', { class: 'legend-item filled', text: 'som esticado' }),
       ),
     ));
   }
@@ -391,7 +398,7 @@ function renderFeedback(ctx: AppContext): HTMLElement {
   const criteria = criterionRows(attempt, ctx.state.settings);
   if (criteria.length > 0) {
     root.appendChild(h('section', { class: 'card' },
-      h('h2', { text: 'Criterios' }),
+      h('h2', { text: 'O que foi avaliado' }),
       ...criteria,
     ));
   }
@@ -463,24 +470,29 @@ function metricsCard(attempt: Attempt): HTMLElement {
   const m = attempt.metrics;
   const items: Array<[string, string]> = [];
 
-  items.push(['Duracao', fmtDuration(m.timing.totalSec)]);
-  if (m.mpt) items.push(['Tempo de fonacao', `${fmtNumber(m.mpt.seconds)} s`]);
+  items.push(['Duração', fmtDuration(m.timing.totalSec)]);
+  if (m.mpt) items.push(['Fôlego', `${fmtNumber(m.mpt.seconds)} s`]);
   if (m.ddk && m.ddk.count > 0) {
-    items.push(['Velocidade', `${fmtNumber(m.ddk.syllPerSec)} sil/s`]);
-    items.push(['Irregularidade', `${fmtNumber(m.ddk.cvPercent, 0)}%`]);
+    items.push(['Velocidade', `${fmtNumber(m.ddk.syllPerSec)} sílabas/s`]);
+    items.push(['Fora do compasso', `${fmtNumber(m.ddk.cvPercent, 0)}%`]);
   }
   if (m.timing.syllableCount >= 4) {
-    items.push(['Ritmo', `${fmtNumber(m.timing.articulationRate)} sil/s`]);
+    items.push(['Ritmo', `${fmtNumber(m.timing.articulationRate)} sílabas/s`]);
   }
   if (m.f0.voicedRatio > 0.2) {
-    items.push(['Tom medio', `${Math.round(m.f0.meanHz)} Hz`]);
-    items.push(['Variacao de tom', `${fmtNumber(m.f0.sdSemitones)} st`]);
+    items.push(['Tom da voz', `${Math.round(m.f0.meanHz)} Hz`]);
+    // Semitons: a mesma unidade da música. Abaixo de ~1,5 a fala soa monotona.
+    items.push(['Variação do tom', `${fmtNumber(m.f0.sdSemitones)} semitons`]);
   }
   if (m.timing.pauseCount > 0) {
     items.push(['Pausas', `${m.timing.pauseCount} · ${fmtDuration(m.timing.pauseTotalSec)}`]);
   }
   if (m.timing.filledPauseCount > 0) {
-    items.push(['Alongamentos', String(m.timing.filledPauseCount)]);
+    items.push(['Sons esticados', String(m.timing.filledPauseCount)]);
+  }
+  // Só aparece quando o microfone pegou fraco: é acionável, não é enfeite.
+  if (m.intensity.inputPeakDb < -38 && m.intensity.inputPeakDb > -100) {
+    items.push(['Captação', 'fraca — chegue mais perto']);
   }
 
   const grid = h('div', { class: 'metric-grid' });
@@ -490,22 +502,22 @@ function metricsCard(attempt: Attempt): HTMLElement {
       h('span', { class: 'metric-label', text: label }),
     ));
   }
-  return h('section', { class: 'card' }, h('h2', { text: 'Medidas' }), grid);
+  return h('section', { class: 'card' }, h('h2', { text: 'Seus números' }), grid);
 }
 
 function audioCard(ctx: AppContext, attempt: Attempt): HTMLElement {
   const card = h('section', { class: 'card' }, h('h2', { text: 'Ouvir' }));
   const row = h('div', { class: 'audio-row' });
 
-  const playMine = h('button', { class: 'btn', text: '▶ Sua gravacao' });
+  const playMine = h('button', { class: 'btn', text: '▶ Ouvir você' });
   playMine.addEventListener('click', () => void playRef(ctx, attempt.audioRef));
   row.appendChild(playMine);
 
-  const playBest = h('button', { class: 'btn ghost', text: '▶ Sua melhor' });
+  const playBest = h('button', { class: 'btn ghost', text: '▶ Sua melhor vez' });
   playBest.addEventListener('click', async () => {
     const best = await bestAttempt(attempt.exerciseId);
     if (!best || best.id === attempt.id || !best.audioRef) {
-      ctx.toast('Ainda nao ha uma tentativa anterior melhor para comparar.', 'info');
+      ctx.toast('Ainda não existe uma gravação anterior melhor para comparar.', 'info');
       return;
     }
     await playRef(ctx, best.audioRef);
@@ -522,7 +534,7 @@ function audioCard(ctx: AppContext, attempt: Attempt): HTMLElement {
     attempt.pinned = next;
     pin.textContent = next ? '★ Fixada' : '☆ Fixar';
     ctx.toast(
-      next ? 'Gravacao fixada — nao sera apagada pela limpeza automatica.' : 'Fixacao removida.',
+      next ? 'Gravação fixada. Ela não vai ser apagada.' : 'Gravação desafixada.',
       'ok',
     );
   });
@@ -531,7 +543,7 @@ function audioCard(ctx: AppContext, attempt: Attempt): HTMLElement {
   card.appendChild(row);
   card.appendChild(h('p', {
     class: 'muted small',
-    text: 'Gravacoes nao fixadas sao apagadas depois de 30 dias. As medidas ficam para sempre.',
+    text: 'As gravações são apagadas depois de 30 dias, menos as que você fixar. Seus números ficam para sempre.',
   }));
   return card;
 }
@@ -540,7 +552,7 @@ async function playRef(ctx: AppContext, ref: string | null): Promise<void> {
   if (!ref) return;
   const blob = await loadAudio(ref);
   if (!blob) {
-    ctx.toast('Esta gravacao ja expirou. As medidas continuam no historico.', 'info');
+    ctx.toast('Esta gravação já foi apagada pelo tempo. Seus números continuam guardados.', 'info');
     return;
   }
   if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);

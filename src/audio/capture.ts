@@ -17,6 +17,11 @@ export interface LiveLevel {
   /** RMS instantaneo, 0..1. */
   rms: number;
   peak: number;
+  /**
+   * Nivel 0..1 ja escalado para desenhar a barra, com referencia automatica.
+   * Use este na UI; `rms` cru fica quase sempre perto de zero sem ganho do sistema.
+   */
+  display: number;
   /** f0 estimado ao vivo, 0 se nao vozeado. */
   f0: number;
   elapsedSec: number;
@@ -46,13 +51,27 @@ export class MicRecorder {
   private recording = false;
   private startedAt = 0;
 
-  /** Janela deslizante ja decimada, usada so para o pitch ao vivo. */
+  /**
+   * Janela deslizante ja decimada, usada so para o pitch ao vivo.
+   *
+   * E um buffer CIRCULAR, nao um array que desliza. A versao anterior fazia
+   * `copyWithin(0, 1)` a cada amostra decimada: 1024 movimentacoes por amostra,
+   * ~16 milhoes de operacoes por segundo na thread principal, no meio da
+   * gravacao. Era a causa dos engasgos na captacao.
+   */
   private liveWindow = new Float32Array(1024);
+  private liveWrite = 0;
+  private liveOrdered = new Float32Array(1024);
   private liveDecimation = 3;
   private decimAccumulator = 0;
   private decimCount = 0;
 
   private listener: LevelListener | null = null;
+  /** Resolvida quando o worklet confirma que esvaziou o buffer. */
+  private stopAck: (() => void) | null = null;
+
+  /** Pico decaindo, so para o medidor de nivel se auto-ajustar na tela. */
+  private displayPeak = 0.02;
 
   get isRecording(): boolean {
     return this.recording;
@@ -111,8 +130,10 @@ export class MicRecorder {
     this.chunks = [];
     this.totalSamples = 0;
     this.liveWindow.fill(0);
+    this.liveWrite = 0;
     this.decimAccumulator = 0;
     this.decimCount = 0;
+    this.displayPeak = 0.02;
     this.startedAt = performance.now();
     this.recording = true;
     this.node?.port.postMessage('start');
@@ -123,10 +144,18 @@ export class MicRecorder {
       return { pcm: new Float32Array(0), sampleRate: this.sampleRate, durationSec: 0 };
     }
     this.recording = false;
-    this.node?.port.postMessage('stop');
 
-    // Espera o ultimo bloco parcial chegar do worklet.
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    // Espera o worklet confirmar que esvaziou o buffer, em vez de dormir um
+    // tempo fixo. O bloco final e parcial (ate 2048 amostras, ~43 ms) e so e
+    // enviado no flush — com espera fixa, o fim da frase podia sumir.
+    const flushed = new Promise<void>((resolve) => {
+      this.stopAck = resolve;
+      // Rede de seguranca: se a mensagem se perder, nao travamos a UI para sempre.
+      setTimeout(resolve, 400);
+    });
+    this.node?.port.postMessage('stop');
+    await flushed;
+    this.stopAck = null;
 
     const pcm = new Float32Array(this.totalSamples);
     let offset = 0;
@@ -162,6 +191,11 @@ export class MicRecorder {
   private onWorkletMessage(msg: unknown): void {
     if (!msg || typeof msg !== 'object') return;
     const data = msg as { type?: string; data?: Float32Array };
+
+    if (data.type === 'stopped') {
+      this.stopAck?.();
+      return;
+    }
     if (data.type !== 'pcm' || !data.data) return;
 
     const chunk = data.data;
@@ -173,8 +207,10 @@ export class MicRecorder {
   private updateLive(chunk: Float32Array): void {
     if (!this.listener) return;
 
+    const n = this.liveWindow.length;
     let sum = 0;
     let peak = 0;
+
     for (let i = 0; i < chunk.length; i++) {
       const v = chunk[i];
       sum += v * v;
@@ -185,20 +221,36 @@ export class MicRecorder {
       // suficiente porque so precisamos da periodicidade, nao do timbre.
       this.decimAccumulator += v;
       if (++this.decimCount === this.liveDecimation) {
-        this.liveWindow.copyWithin(0, 1);
-        this.liveWindow[this.liveWindow.length - 1] = this.decimAccumulator / this.liveDecimation;
+        this.liveWindow[this.liveWrite] = this.decimAccumulator / this.liveDecimation;
+        this.liveWrite = (this.liveWrite + 1) % n;
         this.decimAccumulator = 0;
         this.decimCount = 0;
       }
     }
 
     const rms = Math.sqrt(sum / chunk.length);
+
+    // O medidor se auto-ajusta: com o ganho automatico do sistema desligado, um
+    // pico de 0,05 e uma fala perfeitamente normal. Uma barra fixa de 0 a 1
+    // ficaria praticamente parada e passaria a impressao de que o microfone
+    // esta morto — que foi exatamente o que aconteceu.
+    if (peak > this.displayPeak) this.displayPeak = peak;
+    else this.displayPeak = Math.max(0.02, this.displayPeak * 0.995);
+
     let f0 = 0;
-    if (rms > 0.004) {
+    // Limiar relativo ao proprio nivel da gravacao, nao um valor absoluto.
+    if (rms > this.displayPeak * 0.08) {
+      // Desenrola o buffer circular para a ordem cronologica que o YIN espera.
+      const ordered = this.liveOrdered;
+      const head = n - this.liveWrite;
+      ordered.set(this.liveWindow.subarray(this.liveWrite), 0);
+      ordered.set(this.liveWindow.subarray(0, this.liveWrite), head);
+
       const rate = this.sampleRate / this.liveDecimation;
-      const { period } = yinPeriod(this.liveWindow, rate, {
+      const { period } = yinPeriod(ordered, rate, {
         ...DEFAULT_PITCH_OPTIONS,
         threshold: 0.2,
+        silenceRms: 0,
       });
       if (period > 0) {
         const hz = rate / period;
@@ -209,6 +261,8 @@ export class MicRecorder {
     this.listener({
       rms,
       peak,
+      /** 0..1 ja escalado para a barra na tela. */
+      display: Math.min(1, rms / (this.displayPeak * 0.75)),
       f0,
       elapsedSec: (performance.now() - this.startedAt) / 1000,
     });
@@ -218,13 +272,16 @@ export class MicRecorder {
 /** Diagnostico do ambiente, exibido em Ajustes. */
 export function micSupport(): { ok: boolean; reason?: string } {
   if (!window.isSecureContext) {
-    return { ok: false, reason: 'Contexto inseguro: o microfone exige HTTPS ou localhost.' };
+    return {
+      ok: false,
+      reason: 'O microfone só funciona em endereço seguro (https). Abra o app pelo endereço oficial.',
+    };
   }
   if (!navigator.mediaDevices?.getUserMedia) {
-    return { ok: false, reason: 'Este navegador nao expoe getUserMedia.' };
+    return { ok: false, reason: 'Este navegador não deixa o app usar o microfone.' };
   }
   if (typeof AudioWorkletNode === 'undefined') {
-    return { ok: false, reason: 'AudioWorklet indisponivel neste navegador.' };
+    return { ok: false, reason: 'Este navegador é antigo demais para o app. Use o Safari atualizado.' };
   }
   return { ok: true };
 }

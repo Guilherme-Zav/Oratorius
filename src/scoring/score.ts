@@ -39,11 +39,11 @@ export interface ScoreResult {
 }
 
 const WARNING_TEXT: Record<string, string> = {
-  clipping: 'A gravacao saturou (volume alto demais). Afaste-se um pouco do microfone e repita.',
-  'ruido-alto': 'Muito ruido de fundo em relacao a sua voz. Procure um lugar mais silencioso.',
-  'muito-curto': 'Gravacao curta demais para analisar.',
-  'sem-voz': 'Nao encontrei voz nesta gravacao. Verifique se o microfone captou.',
-  'volume-baixo': 'Volume muito baixo. Chegue mais perto do microfone.',
+  clipping: 'A gravação estourou de tão alta. Afaste um pouco o microfone e grave de novo.',
+  'ruido-alto': 'Tem muito barulho de fundo junto com a sua voz. Procure um lugar mais quieto.',
+  'muito-curto': 'A gravação ficou curta demais para analisar.',
+  'sem-voz': 'Não encontrei voz nesta gravação. Veja se o microfone está liberado e fale mais perto dele.',
+  'volume-baixo': 'O som chegou fraco demais. Chegue mais perto do microfone e fale um pouco mais alto.',
 };
 
 /** Avisos que impedem qualquer pontuacao. */
@@ -75,7 +75,7 @@ export function scoreAttempt(
       score: -1,
       scorable: false,
       criteria: [],
-      headline: WARNING_TEXT[blocking[0]] ?? 'Nao foi possivel analisar esta gravacao.',
+      headline: WARNING_TEXT[blocking[0]] ?? 'Não deu para analisar esta gravação.',
       details: metrics.warnings
         .filter((w) => w !== blocking[0])
         .map((w) => WARNING_TEXT[w] ?? w),
@@ -88,8 +88,8 @@ export function scoreAttempt(
       score: 100,
       scorable: false,
       criteria: [],
-      headline: 'Exercicio concluido.',
-      details: ['Este e um exercicio guiado — nao ha analise acustica, so o registro de que foi feito.'],
+      headline: 'Exercício feito.',
+      details: ['Este exercício é para fazer, não para medir. O app só anota que você cumpriu.'],
       flags,
     };
   }
@@ -118,7 +118,7 @@ export function scoreAttempt(
       score: -1,
       scorable: false,
       criteria: [],
-      headline: 'Gravacao curta demais para gerar metricas confiaveis.',
+      headline: 'A gravação ficou curta demais para dar um resultado confiável.',
       details: [],
       flags,
     };
@@ -153,7 +153,7 @@ function buildFeedback(
     const praise = best ? byId.get(best.id)?.praise : undefined;
     if (praise) details.push(praise);
   } else {
-    headline = byId.get(worst.id)?.advice ?? `Atencao em: ${worst.label}.`;
+    headline = byId.get(worst.id)?.advice ?? `Para melhorar: ${worst.label}.`;
     // Ate dois pontos secundarios — mais que isso ninguem absorve entre uma
     // tentativa e a proxima.
     for (const r of results) {
@@ -173,7 +173,7 @@ function buildFeedback(
 
   if (metrics.voiceQuality.reliable && metrics.voiceQuality.jitterPct > 2.5) {
     details.push(
-      'A voz saiu instavel nesta gravacao. Se isso se repetir por varios dias, vale hidratar mais e descansar a voz — e, persistindo, procurar um fonoaudiologo.',
+      'A voz saiu meio trêmula hoje. Se isso continuar por vários dias, beba mais água e descanse a voz — e, se não passar, vale consultar um fonoaudiólogo.',
     );
   }
 
@@ -181,17 +181,17 @@ function buildFeedback(
 }
 
 function pickPraise(score: number, exercise: Exercise): string {
-  if (score >= 92) return 'Execucao muito boa. Este exercicio esta dominado.';
-  if (score >= 80) return 'Boa execucao, dentro do alvo em todos os criterios.';
-  if (exercise.track === 'articulacao') return 'Execucao limpa. Repita para consolidar.';
-  return 'Execucao dentro do esperado.';
+  if (score >= 92) return 'Muito bom. Este exercício você já domina.';
+  if (score >= 80) return 'Boa. Ficou dentro do esperado em tudo.';
+  if (exercise.track === 'articulacao') return 'Saiu limpo. Repita mais algumas vezes para fixar.';
+  return 'Ficou dentro do esperado.';
 }
 
 /** Rotulo curto para a UI. */
 export function scoreLabel(score: number): string {
   if (score < 0) return '—';
-  if (score >= 90) return 'Excelente';
+  if (score >= 90) return 'Muito bom';
   if (score >= 78) return 'Bom';
-  if (score >= 60) return 'Regular';
-  return 'Precisa treino';
+  if (score >= 60) return 'Dá para melhorar';
+  return 'Precisa treinar';
 }

@@ -1,4 +1,4 @@
-/** Biblioteca: treinar uma trilha ou um exercicio isolado, fora do plano do dia. */
+/** Lista completa: treinar um grupo inteiro ou um exercício solto, fora do plano do dia. */
 
 import { h } from '../dom.ts';
 import { registerScreen, type AppContext } from '../app.ts';
@@ -13,7 +13,7 @@ let openTrack: Track | null = null;
 
 export function renderLibrary(ctx: AppContext): HTMLElement {
   const root = h('div', { class: 'screen library' });
-  root.appendChild(h('header', { class: 'app-header' }, h('h1', { text: 'Exercicios' })));
+  root.appendChild(h('header', { class: 'app-header' }, h('h1', { text: 'Todos os exercícios' })));
 
   for (const track of TRACKS) {
     const level = levelFor(ctx.state.progress, track.id);
@@ -35,7 +35,7 @@ export function renderLibrary(ctx: AppContext): HTMLElement {
     const section = h('section', { class: 'card track' }, header);
 
     if (isOpen) {
-      const run = h('button', { class: 'btn primary wide', text: `Treinar a trilha (ate o nivel ${level})` });
+      const run = h('button', { class: 'btn primary wide', text: `Treinar tudo até o degrau ${level}` });
       run.addEventListener('click', () => startPractice(ctx, buildTrackSession(track.id, level)));
       section.appendChild(run);
 
@@ -46,8 +46,8 @@ export function renderLibrary(ctx: AppContext): HTMLElement {
           lastLevel = ex.level;
           const locked = ex.level > level;
           ul.appendChild(h('li', { class: `level-sep${locked ? ' locked' : ''}` },
-            `Nivel ${ex.level}`,
-            locked ? h('span', { class: 'lock', text: ' · ainda nao liberado' }) : null,
+            `Degrau ${ex.level}`,
+            locked ? h('span', { class: 'lock', text: ' · você chega lá' }) : null,
           ));
         }
         ul.appendChild(exerciseRow(ctx, ex, ex.level > level));
@@ -59,7 +59,7 @@ export function renderLibrary(ctx: AppContext): HTMLElement {
   }
 
   root.appendChild(h('p', { class: 'muted small center' },
-    `${EXERCISES.length} exercicios no catalogo.`,
+    `${EXERCISES.length} exercícios no total.`,
   ));
 
   void annotateCounts(root);

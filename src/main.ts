@@ -10,6 +10,7 @@ import './ui/screens/home.ts';
 import './ui/screens/practice.ts';
 import './ui/screens/progress.ts';
 import './ui/screens/library.ts';
+import './ui/screens/conditions.ts';
 import './ui/screens/settings.ts';
 
 async function boot(): Promise<void> {

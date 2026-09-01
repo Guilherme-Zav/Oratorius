@@ -19,7 +19,15 @@ import type { Exercise, Track } from '../content/types.ts';
 import { dueReviews, levelFor } from './progression.ts';
 import type { ReviewItem, TrackProgress } from '../data/model.ts';
 
+/** Etapas fixas de um treino. Identificador estável, independente do texto exibido. */
+export type BlockId = 'aquecimento' | 'foco' | 'medida' | 'oratoria' | 'avulso';
+
 export interface SessionBlock {
+  /**
+   * Chave estável. Título e subtítulo são texto de interface e mudam sempre que
+   * a redação melhora; nada de lógica (nem de teste) deve depender deles.
+   */
+  id: BlockId;
   title: string;
   subtitle: string;
   exerciseIds: string[];
@@ -83,8 +91,9 @@ export function buildSession(
   // --- 1. Aquecimento ---
   const warmup = dailyPick(warmupExercises(), seed, 3);
   blocks.push({
+    id: 'aquecimento',
     title: 'Aquecimento',
-    subtitle: 'Solta a lingua e prepara a respiracao',
+    subtitle: 'Solta a língua e prepara a respiração',
     exerciseIds: warmup.map((e) => e.id),
   });
 
@@ -100,17 +109,19 @@ export function buildSession(
     .filter((id, i, arr) => arr.indexOf(id) === i);
 
   blocks.push({
-    title: `Articulacao — nivel ${artLevel}`,
+    id: 'foco',
+    title: `O som do R — degrau ${artLevel}`,
     subtitle: due.length
-      ? `${due.length} exercicio(s) voltando para revisao`
-      : 'Foco do dia no som /r/',
+      ? `${due.length} exercício(s) voltando para revisão`
+      : 'O foco principal do dia',
     exerciseIds: focusIds,
   });
 
   // --- 3. Linha de base (nunca muda) ---
   blocks.push({
-    title: 'Linha de base',
-    subtitle: 'Sempre os mesmos — e o que torna a evolucao comparavel',
+    id: 'medida',
+    title: 'Medida do dia',
+    subtitle: 'Sempre os mesmos, para dar para comparar com ontem',
     exerciseIds: baselineExercises().map((e) => e.id),
   });
 
@@ -118,8 +129,9 @@ export function buildSession(
   const oraLevel = levelFor(progress, 'oratoria');
   const oratory = atOrBelow('oratoria', oraLevel, 2, seed + 7);
   blocks.push({
-    title: `Oratoria — nivel ${oraLevel}`,
-    subtitle: 'Projecao, prosodia e estrutura',
+    id: 'oratoria',
+    title: `Falar bem — degrau ${oraLevel}`,
+    subtitle: 'Clareza, ritmo e firmeza na voz',
     exerciseIds: oratory.map((e) => e.id),
   });
 
@@ -134,7 +146,7 @@ export function buildTrackSession(track: Track, level: number): SessionPlan {
     .sort((a, b) => a.level - b.level)
     .map((e) => e.id);
   return {
-    blocks: [{ title: track, subtitle: `Ate o nivel ${level}`, exerciseIds: ids }],
+    blocks: [{ id: 'avulso', title: track, subtitle: `Até o degrau ${level}`, exerciseIds: ids }],
     exerciseIds: ids,
     estimatedSec: estimate(ids),
   };
@@ -144,7 +156,7 @@ export function singleExerciseSession(exerciseId: string): SessionPlan {
   const ex = getExercise(exerciseId);
   const ids = ex ? [ex.id] : [];
   return {
-    blocks: [{ title: ex?.title ?? 'Exercicio', subtitle: '', exerciseIds: ids }],
+    blocks: [{ id: 'avulso', title: ex?.title ?? 'Exercício', subtitle: '', exerciseIds: ids }],
     exerciseIds: ids,
     estimatedSec: estimate(ids),
   };

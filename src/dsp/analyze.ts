@@ -12,6 +12,7 @@ import { median, percentile, removeDC, semitones, stdDev, mean } from './frames.
 import { ANALYSIS_RATE, resample } from './resample.ts';
 import { fixOctaveJumps, trackPitch, voicedValues } from './pitch.ts';
 import { clippingRatio, peakDb, trackIntensity } from './intensity.ts';
+import { normalizePcm } from './gain.ts';
 import { detectVoiceActivity } from './vad.ts';
 import { analyzeSpectrum } from './spectrum.ts';
 import { detectSyllables } from './syllables.ts';
@@ -60,11 +61,19 @@ export function analyze(
 ): AnalysisResult {
   const { ddk = false, mpt = false, waveformBins = 360 } = options;
 
+  // Avisos de captacao sao medidos no sinal CRU, antes de qualquer ganho: e o
+  // unico ponto em que ainda da para saber se o microfone captou bem.
   const clipped = clippingRatio(input);
-  const peak = peakDb(input);
-  const x = removeDC(resample(input, inputRate, ANALYSIS_RATE));
+  const inputPeak = peakDb(input);
+
+  // Depois normalizamos. Sem isto, uma gravacao fraca (o normal com o ganho
+  // automatico do sistema desligado) e descartada pelos limiares absolutos do
+  // detector de f0 e o app conclui "sem voz" numa gravacao perfeitamente boa.
+  const leveled = normalizePcm(resample(input, inputRate, ANALYSIS_RATE));
+  const x = removeDC(leveled.pcm);
   const sr = ANALYSIS_RATE;
   const totalSec = x.length / sr;
+  const peak = peakDb(x);
 
   // Passo temporal adaptativo. O rastreamento de f0 domina o custo da analise, e
   // ele cresce linearmente com o numero de frames.
@@ -129,7 +138,10 @@ export function analyze(
   if (snrDb < 15) warnings.push('ruido-alto');
   if (totalSec < 0.4) warnings.push('muito-curto');
   if (vad.speechTotalSec < 0.2 || voiced.length < 5) warnings.push('sem-voz');
-  if (peak < -35) warnings.push('volume-baixo');
+  // Avaliado no sinal cru: o normalizado esta sempre em bom nivel por construcao.
+  // O limiar e generoso porque o ganho ja resolveu o caso comum — este aviso e
+  // para quando o microfone realmente nao pegou (longe demais, tapado, mudo).
+  if (inputPeak < -48) warnings.push('volume-baixo');
 
   const longestPause = vad.internalPauses.reduce((a, p) => Math.max(a, p.durationSec), 0);
   const filledTotal = filled.reduce((a, f) => a + f.durationSec, 0);
@@ -146,6 +158,7 @@ export function analyze(
     intensity: {
       meanDb, sdDb: speechDb.length > 1 ? stdDev(speechDb) : 0,
       peakDb: peak, noiseFloorDb: vad.noiseFloorDb, snrDb, clippingRatio: clipped,
+      inputPeakDb: inputPeak, appliedGain: leveled.gain,
     },
     timing: {
       totalSec,

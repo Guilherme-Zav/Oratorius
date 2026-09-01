@@ -33,8 +33,8 @@ interface MetricSpec {
 const METRICS: MetricSpec[] = [
   {
     id: 'tmf',
-    title: 'Tempo de fonacao (TMF)',
-    explanation: 'Quantos segundos voce sustenta um /a/ numa expiracao. Mede apoio respiratorio.',
+    title: 'Fôlego',
+    explanation: 'Quantos segundos você segura um "aaa" sem respirar. É a medida mais direta do seu fôlego.',
     unit: ' s',
     exerciseIds: ['resp-tmf-a'],
     value: (a) => a.metrics.mpt?.seconds ?? null,
@@ -42,18 +42,18 @@ const METRICS: MetricSpec[] = [
   },
   {
     id: 'ddk-rate',
-    title: 'Velocidade do DDK',
-    explanation: 'Silabas por segundo em pa-ta-ka. Sobe com a automatizacao do movimento.',
+    title: 'Velocidade da língua',
+    explanation: 'Quantas sílabas por segundo você faz no pa-ta-ka. Sobe conforme o movimento vira automático.',
     unit: '',
     exerciseIds: ['ddk-pataka'],
     value: (a) => (a.metrics.ddk?.count ?? 0) >= 6 ? a.metrics.ddk!.syllPerSec : null,
-    format: (v) => `${fmtNumber(v)} sil/s`,
+    format: (v) => `${fmtNumber(v)} síl/s`,
   },
   {
     id: 'ddk-cv',
-    title: 'Irregularidade do DDK',
+    title: 'Compasso da língua',
     explanation:
-      'Variacao dos intervalos entre silabas. E a metrica mais sensivel a travamento — e a unica em que MENOR e melhor.',
+      'O quanto os intervalos entre as sílabas variam. É a medida que mais denuncia travamento, e a única aqui em que MENOR é melhor.',
     unit: '%',
     lowerIsBetter: true,
     exerciseIds: ['ddk-pataka'],
@@ -62,29 +62,29 @@ const METRICS: MetricSpec[] = [
   },
   {
     id: 'pitch-range',
-    title: 'Variacao de tom',
+    title: 'Variação do tom',
     explanation:
-      'Desvio do contorno de f0 em semitons na leitura expressiva. Abaixo de ~1,5 a fala soa monotona.',
+      'O quanto sua voz sobe e desce ao ler com emoção. Abaixo de 1,5 a fala soa monótona.',
     unit: ' st',
     band: { from: 2, to: 6 },
     exerciseIds: ['ora-leitura-expressiva'],
     value: (a) => (a.metrics.f0.voicedRatio > 0.25 ? a.metrics.f0.sdSemitones : null),
-    format: (v) => `${fmtNumber(v)} st`,
+    format: (v) => `${fmtNumber(v)} semitons`,
   },
   {
     id: 'rate',
-    title: 'Ritmo de fala',
-    explanation: 'Silabas por segundo excluindo pausas. Faixa confortavel de escuta: 3,8 a 6,0.',
+    title: 'Ritmo da fala',
+    explanation: 'Sílabas por segundo, sem contar as pausas. O confortável de ouvir fica entre 3,8 e 6,0.',
     unit: '',
     band: { from: 3.8, to: 6.0 },
     value: (a) => (a.metrics.timing.syllableCount >= 6 ? a.metrics.timing.articulationRate : null),
-    format: (v) => `${fmtNumber(v)} sil/s`,
+    format: (v) => `${fmtNumber(v)} síl/s`,
   },
   {
     id: 'filled',
-    title: 'Alongamentos por minuto',
+    title: 'Sons esticados por minuto',
     explanation:
-      'Quantos "eeee" e "hmmm" por minuto de fala. Detectado pelo som, sem transcricao — nao pega "tipo" nem "ne".',
+      'Quantos "eeee" e "hmmm" você solta por minuto. O app detecta pelo som, então não pega vícios de palavra como "tipo" e "né".',
     unit: '/min',
     lowerIsBetter: true,
     value: (a) => (a.metrics.timing.speechSec > 20 ? a.metrics.timing.filledPausePerMin : null),
@@ -92,9 +92,9 @@ const METRICS: MetricSpec[] = [
   },
   {
     id: 'artic-score',
-    title: 'Nota nos pares minimos',
+    title: 'Nota nas palavras parecidas',
     explanation:
-      'Desempenho em prato/pato, trem/tem e afins — onde a omissao do R aparece com clareza.',
+      'Como você foi em prato/pato, trem/tem e parecidas. É onde o R que some fica mais evidente.',
     unit: '',
     band: { from: 85, to: 100 },
     exerciseIds: ['art-l6-pares-p'],
@@ -106,7 +106,7 @@ const METRICS: MetricSpec[] = [
 export function renderProgress(ctx: AppContext): HTMLElement {
   const root = h('div', { class: 'screen progress' });
   root.appendChild(h('header', { class: 'app-header' }, h('h1', { text: 'Progresso' })));
-  root.appendChild(h('p', { class: 'muted', text: 'carregando historico…' }));
+  root.appendChild(h('p', { class: 'muted', text: 'carregando seu histórico…' }));
   void hydrate(ctx, root);
   return root;
 }
@@ -145,14 +145,14 @@ async function hydrate(ctx: AppContext, root: HTMLElement): Promise<void> {
       ),
       h('div', { class: 'stat' },
         h('span', { class: 'stat-value', text: String(Math.round(meanScore)) }),
-        h('span', { class: 'stat-label', text: 'nota media' }),
+        h('span', { class: 'stat-label', text: 'nota média' }),
       ),
     ),
     lineChart(
       stats.map((s) => ({ label: s.day, value: s.practiceSec > 0 ? s.practiceSec / 60 : null })),
       { height: 90, unit: ' min', yMin: 0 },
     ),
-    h('p', { class: 'muted small', text: 'minutos por dia, ultimos 30 dias' }),
+    h('p', { class: 'muted small', text: 'minutos por dia, nos últimos 30 dias' }),
   ));
 
   // ------------------------------------------------ uma serie por metrica
@@ -189,20 +189,21 @@ async function hydrate(ctx: AppContext, root: HTMLElement): Promise<void> {
   }
 
   // ------------------------------------------------ exportar relatorio
-  const exportBtn = h('button', { class: 'btn wide', text: 'Exportar relatorio (texto)' });
+  const exportBtn = h('button', { class: 'btn wide', text: 'Exportar um resumo em texto' });
   exportBtn.addEventListener('click', () => downloadReport(ctx, attempts));
   root.appendChild(h('section', { class: 'card' },
-    h('h2', { text: 'Levar a um profissional' }),
+    h('h2', { text: 'Levar a um fonoaudiólogo' }),
     h('p', { class: 'muted small' },
-      'Um fonoaudiologo reconhece TMF, DDK e taxa de acerto por contexto. ',
-      'Este relatorio junta essas medidas em texto simples.',
+      'Este resumo junta em texto simples os números que um profissional reconhece: ',
+      'seu fôlego, o compasso da língua e como você foi em cada tipo de exercício, dia a dia. ',
+      'É bem mais útil do que chegar dizendo "acho que melhorei".',
     ),
     exportBtn,
   ));
 
   root.appendChild(h('p', { class: 'disclaimer' },
-    'O Oratorius nao e dispositivo medico e nao diagnostica lingua presa (anquiloglossia). ',
-    'Se houver causa anatomica, exercicio nenhum resolve — a avaliacao e clinica.',
+    'O Oratorius não é aparelho médico e não diagnostica língua presa. ',
+    'Se a causa for anatômica, exercício nenhum resolve: só um fonoaudiólogo avaliando de perto.',
   ));
 }
 
@@ -244,12 +245,12 @@ function buildSeries(attempts: Attempt[], spec: MetricSpec): SeriesPoint[] {
 
 function downloadReport(ctx: AppContext, attempts: Attempt[]): void {
   const lines: string[] = [];
-  lines.push('RELATORIO DE TREINO DE FALA — Oratorius');
+  lines.push('RESUMO DE TREINO DE FALA — Oratorius');
   lines.push(`Gerado em: ${new Date().toLocaleString('pt-BR')}`);
-  lines.push(`Periodo: ${attempts.length} gravacoes`);
+  lines.push(`Baseado em ${attempts.length} gravações`);
   lines.push('');
-  lines.push('AVISO: dados gerados por um app de treino pessoal, sem calibracao clinica.');
-  lines.push('Servem como acompanhamento de tendencia, nao como medida diagnostica.');
+  lines.push('AVISO: números de um app de treino pessoal, sem calibração clínica.');
+  lines.push('Servem para acompanhar a sua evolução, não para dar diagnóstico.');
   lines.push('');
 
   for (const spec of METRICS) {
@@ -265,7 +266,7 @@ function downloadReport(ctx: AppContext, attempts: Attempt[]): void {
   for (const a of attempts) {
     exerciseCount.set(a.exerciseId, (exerciseCount.get(a.exerciseId) ?? 0) + 1);
   }
-  lines.push('## Exercicios praticados');
+  lines.push('## Exercícios praticados');
   for (const [id, n] of [...exerciseCount].sort((a, b) => b[1] - a[1])) {
     lines.push(`  ${n.toString().padStart(3)}x  ${getExercise(id)?.title ?? id}`);
   }

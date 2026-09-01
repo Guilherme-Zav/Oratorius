@@ -73,40 +73,40 @@ const articulationRate: Criterion = {
   bad: 3.8, good: 6.0,          // faixa confortavel: 3,8 a 6,0 silabas/s
   windowLow: 2.0, windowHigh: 8.5,
   extract: (m) => (m.timing.syllableCount >= 4 ? m.timing.articulationRate : null),
-  advice: 'Ajuste o ritmo: acima de 6 silabas/s a articulacao comeca a se perder; abaixo de 4 soa arrastado.',
-  praise: 'Ritmo em faixa confortavel de escuta.',
+  advice: 'A velocidade saiu fora da faixa boa de escuta. Rápido demais embola as palavras; devagar demais cansa. Mire o ritmo de uma conversa tranquila.',
+  praise: 'Velocidade boa: dá para acompanhar sem esforço.',
 };
 
 const pitchVariation: Criterion = {
   id: 'entonacao',
-  label: 'Entonacao',
+  label: 'Tom de voz',
   weight: 1,
   direction: 'higher',
   bad: 1.0, good: 3.0,           // desvio do contorno em semitons
   extract: (m) => (m.f0.voicedRatio > 0.25 ? m.f0.sdSemitones : null),
-  advice: 'A curva de tom saiu quase reta — a fala soou monotona. Suba no inicio das frases e desca no fim.',
-  praise: 'Boa variacao de tom: a fala teve relevo.',
+  advice: 'A voz ficou no mesmo tom do começo ao fim, e isso soa monótono. Suba um pouco no início das frases e desça no fim.',
+  praise: 'Boa variação de tom: a fala teve vida.',
 };
 
 const intensityVariation: Criterion = {
   id: 'dinamica',
-  label: 'Dinamica',
+  label: 'Variação de volume',
   weight: 0.6,
   direction: 'higher',
   bad: 2.0, good: 6.0,
   extract: (m) => (m.timing.speechSec > 1 ? m.intensity.sdDb : null),
-  advice: 'O volume ficou constante do inicio ao fim. Variar intensidade e o que marca o que importa.',
+  advice: 'O volume ficou sempre igual. Falar um pouco mais forte no que importa é o que destaca a ideia.',
 };
 
 const filledPauses: Criterion = {
   id: 'alongamentos',
-  label: 'Alongamentos',
+  label: 'Sons esticados',
   weight: 1,
   direction: 'lower',
   bad: 12, good: 2,              // por minuto de fala
   extract: (m) => (m.timing.speechSec > 5 ? m.timing.filledPausePerMin : null),
-  advice: 'Muitos alongamentos ("eeee", "hmmm"). Troque cada um por uma pausa em silencio — soa como confianca, nao como duvida.',
-  praise: 'Quase nenhum alongamento.',
+  advice: 'Muitos "eeee" e "hmmm" no meio da fala. Troque cada um por um segundo de silêncio: soa seguro, e não inseguro.',
+  praise: 'Quase nenhum "eeee". Ficou limpo.',
 };
 
 const pauseUse: Criterion = {
@@ -117,50 +117,50 @@ const pauseUse: Criterion = {
   bad: 0.08, good: 0.30,         // fracao do tempo total em pausa
   windowLow: 0, windowHigh: 0.55,
   extract: (m) => (m.timing.totalSec > 8 ? m.timing.pauseTotalSec / m.timing.totalSec : null),
-  advice: 'Poucas pausas: a fala ficou corrida. Silencio de um segundo depois de uma frase forte vale mais que qualquer enfase.',
-  praise: 'Bom uso de pausas.',
+  advice: 'Faltaram pausas: a fala saiu corrida. Um segundo de silêncio depois de uma frase importante vale mais do que falar mais alto.',
+  praise: 'Bom uso das pausas.',
 };
 
 const fluency: Criterion = {
   id: 'fluencia',
-  label: 'Fluencia',
+  label: 'Fluência',
   weight: 1,
   direction: 'lower',
   bad: 1.5, good: 0.4,           // maior pausa interna, em segundos
   extract: (m) => (m.timing.speechSec > 2 ? m.timing.longestPauseSec : null),
-  advice: 'Houve uma parada longa no meio — sinal de travamento. Desacelere o comeco: a maioria dos travamentos vem de comecar rapido demais.',
+  advice: 'Teve uma parada longa no meio, como se a fala tivesse travado. Comece mais devagar: quase todo travamento vem de começar rápido demais.',
 };
 
 const mptSeconds: Criterion = {
   id: 'tmf',
-  label: 'Tempo de fonacao',
+  label: 'Fôlego',
   weight: 2,
   direction: 'higher',
   bad: 6, good: 20,
   extract: (m) => m.mpt?.seconds ?? null,
-  advice: 'Sustentacao curta. Trabalhe a respiracao costodiafragmatica antes de tentar aumentar o tempo.',
-  praise: 'Otimo tempo de sustentacao.',
+  advice: 'O som durou pouco. Antes de tentar segurar mais tempo, treine respirar pela barriga — é de lá que vem o fôlego.',
+  praise: 'Ótimo fôlego.',
 };
 
 const mptStability: Criterion = {
   id: 'estabilidade',
-  label: 'Estabilidade do tom',
+  label: 'Firmeza do som',
   weight: 1,
   direction: 'lower',
   bad: 2.5, good: 0.6,           // desvio de f0 em semitons durante a sustentacao
   extract: (m) => m.mpt?.f0SdSemitones ?? null,
-  advice: 'O tom oscilou durante a sustentacao. Mire um som unico e continuo, sem procurar a nota.',
+  advice: 'O som ficou balançando de tom. Escolha um tom só e segure ele, sem ficar procurando.',
 };
 
 const mptSupport: Criterion = {
   id: 'apoio',
-  label: 'Apoio',
+  label: 'Força do ar',
   weight: 1.2,
   direction: 'lower',
   bad: 12, good: 3,              // queda de dB entre o primeiro e o ultimo terco
   extract: (m) => m.mpt?.decayDb ?? null,
-  advice: 'O volume caiu bastante no fim — o ar acabou antes do som. Pare a sustentacao um pouco antes do limite.',
-  praise: 'Volume manteve-se firme ate o fim.',
+  advice: 'O volume caiu muito no fim: o ar acabou antes do som. Pare um pouco antes de chegar no limite.',
+  praise: 'O volume se manteve firme até o fim.',
 };
 
 const ddkRate: Criterion = {
@@ -170,28 +170,28 @@ const ddkRate: Criterion = {
   direction: 'higher',
   bad: 3.0, good: 6.0,           // silabas/s
   extract: (m) => m.ddk?.syllPerSec ?? null,
-  advice: 'Velocidade abaixo do esperado. Ganhe regularidade primeiro; velocidade vem depois, sozinha.',
+  advice: 'Deu para ir mais rápido. Mas primeiro acerte o compasso: a velocidade vem sozinha depois.',
 };
 
 const ddkRegularity: Criterion = {
   id: 'regularidade',
-  label: 'Regularidade',
+  label: 'Compasso',
   weight: 2,                     // pesa o dobro: e a metrica que revela travamento
   direction: 'lower',
   bad: 30, good: 8,              // coeficiente de variacao, %
   extract: (m) => (m.ddk && m.ddk.count >= 6 ? m.ddk.cvPercent : null),
-  advice: 'O ritmo saiu irregular — algumas silabas travaram. Reduza a velocidade ate a serie ficar perfeitamente regular.',
-  praise: 'Serie muito regular. E este o objetivo do exercicio, mais que a velocidade.',
+  advice: 'O compasso saiu irregular: algumas sílabas travaram no caminho. Vá mais devagar até sair tudo no mesmo intervalo.',
+  praise: 'Compasso bem regular. É isso que o exercício mede, mais do que a velocidade.',
 };
 
 const clarity: Criterion = {
   id: 'clareza',
-  label: 'Clareza do sinal',
+  label: 'Qualidade da gravação',
   weight: 0.5,
   direction: 'higher',
   bad: 12, good: 25,             // SNR em dB
   extract: (m) => m.intensity.snrDb,
-  advice: 'Sinal proximo do ruido de fundo. Chegue mais perto do microfone ou grave num lugar mais silencioso.',
+  advice: 'Tem bastante barulho de fundo junto com a sua voz. Chegue mais perto do microfone ou grave num lugar mais quieto.',
 };
 
 // --------------------------------------------------------------- rubricas

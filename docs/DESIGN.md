@@ -84,6 +84,47 @@ assinatura de um alongamento ("eeee"). O detector agora só roda em fala conecta
 (≥ 5 s de fonação). Acusar vício de linguagem onde ele não existe corrói a
 confiança no feedback — e a confiança é o insumo do treino.
 
+## 2.2 Revisão depois do primeiro teste de uso
+
+O app foi testado e a devolutiva foi direta: **confuso, cheio de termo técnico, e
+o microfone não pegava direito**. Quatro mudanças saíram disso.
+
+**1. Navegação por problema, não por técnica.** A organização original era
+`Motricidade / Agilidade / Articulação / Respiração / Oratória` — a taxonomia de
+quem aplica o tratamento. Mas quem abre o app não pensa "preciso de motricidade
+orofacial"; pensa "eu troco o R". A aba principal agora é **Problemas de fala**,
+e cada um abre uma página com: o nome (comum e técnico), o que é, como soa
+(`grande` → `gande`), como saber se é o seu caso, os exercícios, e quando
+procurar um profissional. As trilhas continuam existindo por dentro, como
+agrupamento de exercícios — deixaram de ser a porta de entrada.
+
+**2. Português com acento e sem jargão.** Todo o texto visível foi reescrito.
+"Tepe" virou "R de toque"; "diadococinesia" virou "agilidade";
+"encontro consonantal" virou "R grudado em outra letra"; "TMF" virou "fôlego";
+"tempo máximo de fonação" virou "quantos segundos você segura um aaa".
+O nome técnico não sumiu — aparece uma vez, na página do problema, porque é útil
+saber como a coisa se chama ao procurar ajuda.
+
+**3. Três bugs reais de áudio** (não era só volume):
+
+| Bug | Efeito |
+|---|---|
+| `liveWindow.copyWithin(0,1)` por amostra | ~16 milhões de operações por segundo na thread principal **durante a gravação**. Trocado por buffer circular. |
+| `stop()` esperava 60 ms fixos | O último bloco (até 43 ms) podia se perder — o fim da frase sumia. Agora espera a confirmação do worklet. |
+| `silenceRms: 0.0015` absoluto | Com o ganho automático do sistema desligado, o microfone entrega picos de ~-35 dBFS e esse portão descartava a voz inteira como "sem voz". |
+
+**4. Ganho de normalização** (`src/dsp/gain.ts`). O ADR-002 desliga o AGC do
+sistema para preservar a medição, mas nunca repunha ganho nenhum. Agora aplicamos
+um ganho **constante por gravação** — constante é o ponto: multiplicar tudo pelo
+mesmo número preserva a dinâmica interna (o fim continua mais fraco que o começo
+na mesma proporção), ao contrário do AGC, que achata exatamente essa diferença.
+Os avisos de captação são medidos **antes** do ganho, para continuarem honestos.
+Medido: gravação de -35 dBFS que antes era rejeitada como "sem voz" agora pontua
+normal, e o áudio salvo sai a -2,9 dBFS em vez de -35.
+
+Também travamos os blocos da sessão com um `id` estável, porque dois testes
+dependiam do texto do título e quebravam a cada melhoria de redação.
+
 ## 3. Arquitetura de módulos
 
 ```

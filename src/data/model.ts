@@ -10,6 +10,11 @@ export type CodaRhotic = 'fricativa' | 'tepe' | 'retroflexo';
 export interface Settings {
   schemaVersion: number;
   codaRhoticTarget: CodaRhotic;
+  /**
+   * Problema de fala principal (ver content/conditions.ts). Define o foco do
+   * treino do dia e o que a tela inicial mostra primeiro.
+   */
+  primaryCondition: string;
   /** 1 = tolerante, 2 = normal, 3 = exigente. */
   strictness: 1 | 2 | 3;
   dailyGoalMin: number;
@@ -24,6 +29,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   schemaVersion: SCHEMA_VERSION,
   codaRhoticTarget: 'fricativa',
+  primaryCondition: 'rotacismo',
   strictness: 2,
   dailyGoalMin: 12,
   handsFree: false,

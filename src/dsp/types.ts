@@ -21,6 +21,14 @@ export interface IntensityMetrics {
   /** Distancia entre fala e piso de ruido. Abaixo de ~15 dB a analise perde confianca. */
   snrDb: number;
   clippingRatio: number;
+  /**
+   * Pico do sinal como saiu do microfone, ANTES do ganho de normalizacao.
+   * E este numero — nao o `peakDb`, ja normalizado — que diz se a captacao
+   * foi boa. Serve ao aviso de "fale mais perto" e ao medidor de Ajustes.
+   */
+  inputPeakDb: number;
+  /** Ganho aplicado. 1 = o sinal ja vinha em bom nivel. */
+  appliedGain: number;
 }
 
 export interface TimingMetrics {

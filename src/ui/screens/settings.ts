@@ -1,8 +1,8 @@
 /**
- * Ajustes: preferencias, diagnostico de ambiente e backup.
+ * Ajustes: preferências, diagnóstico do ambiente e backup.
  *
- * O bloco de backup fica no topo, e nao no rodape, porque e a unica defesa real
- * contra o unico modo de falha grave do ADR-003 (despejo de dados pelo Safari).
+ * O bloco de backup fica no topo, e não no rodapé, porque é a única defesa real
+ * contra o único modo de falha grave do ADR-003 (o navegador apagar os dados).
  */
 
 import { h, fmtNumber } from '../dom.ts';
@@ -14,6 +14,7 @@ import { requestPersistence, storageStatus } from '../../data/audioStore.ts';
 import { micSupport } from '../../audio/capture.ts';
 import { describeVoices, loadVoices } from '../../audio/speech.ts';
 import { todayKey, type CodaRhotic } from '../../data/model.ts';
+import { CONDITIONS } from '../../content/conditions.ts';
 
 function card(title: string, ...children: (Node | string | null | false)[]): HTMLElement {
   return h('section', { class: 'card' }, h('h2', { text: title }), ...children);
@@ -29,8 +30,8 @@ export function renderSettings(ctx: AppContext): HTMLElement {
   root.appendChild(dangerCard(ctx));
 
   root.appendChild(h('p', { class: 'disclaimer' },
-    'Oratorius v0.1 · app pessoal, roda inteiramente no aparelho. ',
-    'Nenhum audio sai do dispositivo. Nao e dispositivo medico.',
+    'Oratorius v0.1 · app pessoal, funciona todo dentro do seu celular. ',
+    'Nenhuma gravação sai do aparelho. Não é aparelho médico e não dá diagnóstico.',
   ));
 
   return root;
@@ -39,7 +40,7 @@ export function renderSettings(ctx: AppContext): HTMLElement {
 // ---------------------------------------------------------------- backup
 
 function backupCard(ctx: AppContext): HTMLElement {
-  const status = h('p', { class: 'muted small', text: 'verificando…' });
+  const status = h('p', { class: 'muted small', text: 'conferindo…' });
 
   const exportBtn = h('button', { class: 'btn primary wide', text: 'Exportar backup' });
   exportBtn.addEventListener('click', async () => {
@@ -55,7 +56,7 @@ function backupCard(ctx: AppContext): HTMLElement {
 
       await saveSettings({ lastBackupAt: new Date().toISOString() });
       await ctx.reload();
-      ctx.toast('Backup gerado. Salve no app Arquivos ou no iCloud Drive.', 'ok');
+      ctx.toast('Backup pronto. Salve no app Arquivos ou no iCloud.', 'ok');
     } catch (err) {
       ctx.toast(`Falha ao exportar: ${(err as Error).message}`, 'error');
     }
@@ -67,7 +68,7 @@ function backupCard(ctx: AppContext): HTMLElement {
     const file = fileInput.files?.[0];
     if (!file) return;
     if (!confirm(
-      'Importar SUBSTITUI todo o historico atual pelo do arquivo. Isto nao pode ser desfeito. Continuar?',
+      'Restaurar APAGA tudo que está aqui e coloca no lugar o que estiver no arquivo. Não dá para desfazer. Quer continuar?',
     )) {
       fileInput.value = '';
       return;
@@ -76,7 +77,7 @@ function backupCard(ctx: AppContext): HTMLElement {
       const parsed = JSON.parse(await file.text());
       const result = await importBackup(parsed);
       await ctx.reload();
-      ctx.toast(`Importado: ${result.attempts} gravacoes, ${result.sessions} sessoes.`, 'ok');
+      ctx.toast(`Restaurado: ${result.attempts} gravações e ${result.sessions} treinos.`, 'ok');
     } catch (err) {
       ctx.toast(`Falha ao importar: ${(err as Error).message}`, 'error');
     } finally {
@@ -84,13 +85,13 @@ function backupCard(ctx: AppContext): HTMLElement {
     }
   });
 
-  const importBtn = h('button', { class: 'btn wide', text: 'Restaurar de um backup' });
+  const importBtn = h('button', { class: 'btn wide', text: 'Restaurar um backup' });
   importBtn.addEventListener('click', () => fileInput.click());
 
   const el = card('Backup',
     h('p', { class: 'muted small' },
-      'O arquivo tem so as medidas e o progresso — poucos KB. As gravacoes de audio nao vao junto ',
-      '(seriam centenas de MB) e por isso nunca sao pre-requisito de nenhum numero do historico.',
+      'O arquivo leva só os seus números e o seu progresso, e ocupa quase nada. As gravações de voz não vão junto ',
+      '(seriam centenas de MB), e por isso nenhum número do seu histórico depende delas.',
     ),
     status,
     exportBtn,
@@ -101,8 +102,8 @@ function backupCard(ctx: AppContext): HTMLElement {
   void (async () => {
     const days = await daysSinceBackup();
     status.textContent = days === null
-      ? 'Nenhum backup feito ainda.'
-      : days === 0 ? 'Backup feito hoje.' : `Ultimo backup ha ${days} dia(s).`;
+      ? 'Você ainda não fez nenhum backup.'
+      : days === 0 ? 'Backup feito hoje.' : `Último backup há ${days} dia(s).`;
     status.className = days === null || days >= 7 ? 'muted small warn-text' : 'muted small';
   })();
 
@@ -116,9 +117,9 @@ function preferencesCard(ctx: AppContext): HTMLElement {
 
   // --- alvo do R em coda ---
   const codaOptions: Array<{ value: CodaRhotic; label: string; example: string }> = [
-    { value: 'fricativa', label: 'Aspirado / gutural', example: '"porta" como na maior parte do Brasil' },
-    { value: 'tepe', label: 'Tepe (toque)', example: '"porta" com r batido, comum no Sul e em SP capital' },
-    { value: 'retroflexo', label: 'Retroflexo (caipira)', example: '"porta" com r do interior paulista' },
+    { value: 'fricativa', label: 'Puxado da garganta', example: 'como fala a maior parte do Brasil' },
+    { value: 'tepe', label: 'Batidinho', example: 'toque rápido da língua, comum no Sul e na capital de SP' },
+    { value: 'retroflexo', label: 'Do interior', example: 'o "r" caipira, do interior paulista' },
   ];
 
   const codaGroup = h('div', { class: 'options' });
@@ -183,33 +184,54 @@ function preferencesCard(ctx: AppContext): HTMLElement {
     await ctx.reload();
   });
 
-  return card('Preferencias',
+  // --- problema principal ---
+  const condGroup = h('div', { class: 'options' });
+  for (const c of CONDITIONS) {
+    const btn = h('button', {
+      class: `option${s.primaryCondition === c.id ? ' selected' : ''}`,
+    },
+      h('strong', { text: c.plainName }),
+      h('span', { class: 'muted small', text: c.summary }),
+    );
+    btn.addEventListener('click', async () => {
+      await saveSettings({ primaryCondition: c.id });
+      await ctx.reload();
+    });
+    condGroup.appendChild(btn);
+  }
+
+  return card('Preferências',
     h('div', { class: 'field' },
-      h('label', { text: 'Som do R no fim da silaba' }),
+      h('label', { text: 'Meu problema de fala' }),
+      h('p', { class: 'muted small', text: 'Define o foco do treino do dia.' }),
+      condGroup,
+    ),
+    h('div', { class: 'field' },
+      h('label', { text: 'Seu jeito de falar o R no fim das palavras' }),
       h('p', { class: 'muted small' },
-        'Nao existe um som "certo" unico aqui: varia por regiao. Escolha o seu — o app nao vai ',
-        'tratar o seu sotaque como erro.',
+        'Em "porta", "verde", "sorte". Não existe um jeito certo: muda de região para região. ',
+        'Escolha o seu, e o app não vai tratar o seu sotaque como erro.',
       ),
       codaGroup,
     ),
     h('div', { class: 'field' },
-      h('label', { text: 'Rigor da avaliacao' }),
-      h('p', { class: 'muted small', text: 'Muda a fronteira entre "ok" e "atencao", nao os numeros medidos.' }),
+      h('label', { text: 'Quão exigente o app deve ser' }),
+      h('p', { class: 'muted small', text: 'Muda só a nota de corte. Os números medidos são sempre os mesmos.' }),
       strictGroup,
     ),
     h('div', { class: 'field row' },
-      h('label', { text: 'Meta diaria' }), goalLabel,
+      h('label', { text: 'Meta de treino por dia' }), goalLabel,
     ),
     goal,
     h('div', { class: 'field row' },
-      h('label', { text: 'Guardar audio por' }), keepLabel,
+      h('label', { text: 'Guardar gravações por' }), keepLabel,
     ),
     keep,
-    h('p', { class: 'muted small', text: 'Gravacoes fixadas (★) nunca sao apagadas.' }),
+    h('p', { class: 'muted small', text: 'As gravações que você fixar (★) nunca são apagadas.' }),
     h('div', { class: 'field row' },
       h('div', {},
-        h('label', { text: 'Modo maos-livres' }),
-        h('p', { class: 'muted small', text: 'Avanca sozinho apos o feedback — para treinar em pe, sem tocar na tela.' }),
+        h('label', { text: 'Passar sozinho' }),
+        h('p', { class: 'muted small', text: 'Vai para o próximo exercício sem você tocar na tela. Bom para treinar em pé, na frente do espelho.' }),
       ),
       hands,
     ),
@@ -220,8 +242,8 @@ function preferencesCard(ctx: AppContext): HTMLElement {
 
 function diagnosticsCard(): HTMLElement {
   const list = h('dl', { class: 'diag' });
-  const el = card('Diagnostico', list,
-    h('p', { class: 'muted small', text: 'Confira isto na primeira vez que abrir no iPhone.' }),
+  const el = card('Diagnóstico', list,
+    h('p', { class: 'muted small', text: 'Confira esta lista na primeira vez que abrir o app no iPhone.' }),
   );
 
   void (async () => {
@@ -231,12 +253,12 @@ function diagnosticsCard(): HTMLElement {
     rows.push(['Microfone', mic.ok ? 'disponivel' : (mic.reason ?? 'indisponivel'), mic.ok]);
     rows.push([
       'Contexto seguro',
-      window.isSecureContext ? 'sim (HTTPS)' : 'NAO — o microfone nao vai funcionar',
+      window.isSecureContext ? 'sim (HTTPS)' : 'NÃO — o microfone não vai funcionar assim',
       window.isSecureContext,
     ]);
     rows.push([
       'Instalado na tela de inicio',
-      window.matchMedia('(display-mode: standalone)').matches ? 'sim' : 'nao (rodando no navegador)',
+      window.matchMedia('(display-mode: standalone)').matches ? 'sim' : 'não (está aberto no navegador)',
       true,
     ]);
 
@@ -256,7 +278,7 @@ function diagnosticsCard(): HTMLElement {
     const voices = describeVoices(await loadVoices());
     rows.push([
       'Vozes em portugues',
-      voices.length ? voices.map((v) => v.name).slice(0, 3).join(', ') : 'nenhuma — "ouvir modelo" nao vai funcionar',
+      voices.length ? voices.map((v) => v.name).slice(0, 3).join(', ') : 'nenhuma — o botão de ouvir não vai funcionar',
       voices.length > 0,
     ]);
 
@@ -281,7 +303,7 @@ function diagnosticsCard(): HTMLElement {
 // ---------------------------------------------------------------- manutencao
 
 function dangerCard(ctx: AppContext): HTMLElement {
-  const prune = h('button', { class: 'btn wide', text: 'Limpar audio antigo agora' });
+  const prune = h('button', { class: 'btn wide', text: 'Apagar gravações antigas agora' });
   prune.addEventListener('click', async () => {
     const r = await runRetention();
     ctx.toast(`Removidos ${r.removed} audios antigos e ${r.orphans} arquivos orfaos.`, 'ok');
@@ -289,7 +311,7 @@ function dangerCard(ctx: AppContext): HTMLElement {
 
   const wipe = h('button', { class: 'btn danger wide', text: 'Apagar tudo' });
   wipe.addEventListener('click', async () => {
-    if (!confirm('Apagar TODO o historico, progresso e gravacoes? Isto nao pode ser desfeito.')) return;
+    if (!confirm('Apagar TUDO: histórico, progresso e gravações? Não dá para desfazer.')) return;
     if (!confirm('Ultima confirmacao: exportou um backup antes?')) return;
     await wipeEverything();
     await ctx.reload();
@@ -297,7 +319,7 @@ function dangerCard(ctx: AppContext): HTMLElement {
     ctx.go('home');
   });
 
-  return card('Manutencao', prune, wipe);
+  return card('Limpeza', prune, wipe);
 }
 
 registerScreen('settings', renderSettings);

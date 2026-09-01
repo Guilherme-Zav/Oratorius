@@ -1,9 +1,9 @@
 /**
  * Tela inicial.
  *
- * Uma acao primaria: "Treinar hoje". Tudo o mais e informacao de contexto.
- * O aviso de backup fica aqui, e nao escondido em Ajustes, porque o unico risco
- * real de perda de dados no ADR-003 e o usuario nunca exportar nada.
+ * Uma ação principal: "Treinar hoje". Todo o resto é contexto.
+ * O aviso de backup fica aqui, e não escondido em Ajustes, porque o único risco
+ * real de perda de dados no ADR-003 é o usuário nunca exportar nada.
  */
 
 import { h, fmtDuration } from '../dom.ts';
@@ -36,7 +36,7 @@ export function renderHome(ctx: AppContext): HTMLElement {
     h('span', { class: 'cta-label', text: 'Treinar hoje' }),
     h('span', {
       class: 'cta-meta',
-      text: `${plan.exerciseIds.length} exercicios · ~${Math.round(plan.estimatedSec / 60)} min`,
+      text: `${plan.exerciseIds.length} exercícios · cerca de ${Math.round(plan.estimatedSec / 60)} min`,
     }),
   );
   cta.addEventListener('click', () => startPractice(ctx, plan));
@@ -53,10 +53,10 @@ export function renderHome(ctx: AppContext): HTMLElement {
   root.appendChild(card(h('h2', { text: 'Plano de hoje' }), blocks));
 
   // ------------------------------------------------ dados assincronos
-  const statsCard = card(h('h2', { text: 'Constancia' }), h('p', { class: 'muted', text: 'carregando…' }));
+  const statsCard = card(h('h2', { text: 'Constância' }), h('p', { class: 'muted', text: 'carregando…' }));
   root.appendChild(statsCard);
 
-  const levelsCard = card(h('h2', { text: 'Niveis' }));
+  const levelsCard = card(h('h2', { text: 'Seus níveis' }));
   const levelList = h('ul', { class: 'levels' });
   for (const t of TRACKS) {
     const level = levelFor(ctx.state.progress, t.id);
@@ -85,7 +85,7 @@ async function hydrate(ctx: AppContext, statsCard: HTMLElement, root: HTMLElemen
   const pct = Math.min(100, Math.round((todaySec / goalSec) * 100));
 
   statsCard.replaceChildren(
-    h('h2', { text: 'Constancia' }),
+    h('h2', { text: 'Constância' }),
     h('div', { class: 'stat-row' },
       h('div', { class: 'stat' },
         h('span', { class: 'stat-value', text: String(streak) }),
@@ -100,16 +100,21 @@ async function hydrate(ctx: AppContext, statsCard: HTMLElement, root: HTMLElemen
       h('div', { class: 'progress-fill', style: `width:${pct}%` }),
     ),
     streakBars(stats.map((s) => ({ day: s.day, value: s.practiceSec }))),
-    h('p', { class: 'muted small', text: 'ultimas 3 semanas' }),
+    h('p', { class: 'muted small', text: 'últimas 3 semanas' }),
   );
 
   if (recent.length === 0) {
     root.insertBefore(
       h('div', { class: 'notice info' },
-        h('strong', { text: 'Primeira vez?' }),
+        h('strong', { text: 'Primeira vez aqui?' }),
         h('p', {
-          text: 'Comece pelo treino de hoje. Na primeira gravacao o navegador vai pedir permissao do microfone — precisa aceitar.',
+          text: 'Toque em "Treinar hoje" para começar. Na primeira gravação o navegador vai pedir permissão para usar o microfone: precisa aceitar.',
         }),
+        (() => {
+          const b = h('button', { class: 'btn small', text: 'Ver meu problema de fala' });
+          b.addEventListener('click', () => ctx.go('conditions'));
+          return b;
+        })(),
       ),
       root.children[1] ?? null,
     );
@@ -121,10 +126,10 @@ async function hydrate(ctx: AppContext, statsCard: HTMLElement, root: HTMLElemen
     root.insertBefore(
       h('div', { class: `notice ${urgent ? 'warn' : 'info'}` },
         h('strong', {
-          text: sinceBackup === null ? 'Sem backup ainda' : `Ultimo backup ha ${sinceBackup} dias`,
+          text: sinceBackup === null ? 'Você ainda não fez backup' : `Último backup há ${sinceBackup} dias`,
         }),
         h('p', {
-          text: 'O Safari pode apagar dados de apps web. Exporte de vez em quando — o arquivo e pequeno e restaura tudo.',
+          text: 'O navegador do iPhone pode apagar os dados do app sozinho. Salve uma cópia de vez em quando: o arquivo é pequeno e traz tudo de volta.',
         }),
         (() => {
           const b = h('button', { class: 'btn small', text: 'Ir para Ajustes' });

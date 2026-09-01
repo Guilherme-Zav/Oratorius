@@ -9,7 +9,9 @@ import {
 import type { Attempt, ReviewItem, Session, Settings, TrackProgress } from '../data/model.ts';
 import { clear } from './dom.ts';
 
-export type ScreenName = 'home' | 'practice' | 'feedback' | 'progress' | 'library' | 'settings';
+export type ScreenName =
+  | 'home' | 'practice' | 'feedback' | 'progress'
+  | 'conditions' | 'library' | 'settings';
 
 export interface PracticeState {
   plan: SessionPlan;
@@ -122,8 +124,8 @@ function renderToast(state: AppState): void {
 }
 
 const NAV: Array<{ screen: ScreenName; label: string; icon: string }> = [
-  { screen: 'home', label: 'Inicio', icon: '◉' },
-  { screen: 'library', label: 'Exercicios', icon: '☰' },
+  { screen: 'home', label: 'Início', icon: '◉' },
+  { screen: 'conditions', label: 'Problemas', icon: '☰' },
   { screen: 'progress', label: 'Progresso', icon: '◺' },
   { screen: 'settings', label: 'Ajustes', icon: '⚙' },
 ];
