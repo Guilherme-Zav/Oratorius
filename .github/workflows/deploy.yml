@@ -1,0 +1,66 @@
+# Publica o app no GitHub Pages a cada push na main.
+#
+# Por que existe: o repositorio guarda o codigo-fonte em TypeScript, e o que o
+# navegador precisa e o JavaScript compilado (a pasta dist/, que fica fora do
+# repositorio de proposito). Sem este fluxo, seria preciso commitar arquivos
+# gerados — que e a origem classica de "funciona na minha maquina".
+#
+# Bonus: os testes rodam antes de publicar. Se o DSP quebrar, o app no celular
+# continua sendo a ultima versao que funcionava.
+
+name: Publicar no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Permite publicar na mao pelo site do GitHub, sem precisar de um commit novo.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Se dois pushes acontecerem juntos, publica so o mais recente.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # Uma unica dependencia (typescript). Instala em segundos.
+      - run: npm ci
+
+      - name: Rodar os testes
+        run: npm test
+
+      - name: Conferir os tipos
+        run: npm run typecheck
+
+      - name: Compilar
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  publicar:
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
